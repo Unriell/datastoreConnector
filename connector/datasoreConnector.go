@@ -55,8 +55,9 @@ type datastoreConnector struct {
 // DatastoreBasicOpt represents datastore basic operations as CRUD methods
 type DatastoreBasicOpt interface {
 	Save(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
-	Exist(key *datastore.Key) bool
+	Exist(key *datastore.Key, query *datastore.Query) bool
 	Delete(key *datastore.Key) bool
+	Update(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
 }
 
 var once sync.Once
@@ -130,10 +131,10 @@ func (d *datastoreConnector) Save(inboundKey *datastore.Key, entity interface{})
 	return
 }
 
-func (d *datastoreConnector) Exist(key *datastore.Key) (exist bool) {
+func (d *datastoreConnector) Exist(key *datastore.Key, query *datastore.Query) (exist bool) {
 
 	exist = false
-	if amount, err := d.client.Count(d.ctx, datastore.NewQuery("application").KeysOnly().Filter("__key__ =", key)); err == nil {
+	if amount, err := d.client.Count(d.ctx, query); err == nil {
 		if amount > 0 {
 			exist = true
 		}
@@ -147,5 +148,11 @@ func (d *datastoreConnector) Delete(key *datastore.Key) (deleted bool) {
 		deleted = true
 	}
 
+	return
+}
+
+func (d *datastoreConnector) Update(inboundKey *datastore.Key, entity interface{}) (key *datastore.Key, err error) {
+
+	key, err = d.client.Put(d.ctx, key, entity)
 	return
 }
