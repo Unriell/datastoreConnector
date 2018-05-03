@@ -58,6 +58,7 @@ type DatastoreBasicOpt interface {
 	Exist(key *datastore.Key, query *datastore.Query) bool
 	Delete(key *datastore.Key) bool
 	Update(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
+	Retrieve(key *datastore.Key, dst interface{}) error
 }
 
 var once sync.Once
@@ -153,6 +154,12 @@ func (d *datastoreConnector) Delete(key *datastore.Key) (deleted bool) {
 
 func (d *datastoreConnector) Update(inboundKey *datastore.Key, entity interface{}) (key *datastore.Key, err error) {
 
-	key, err = d.client.Put(d.ctx, key, entity)
+	key, err = d.client.Put(d.ctx, key, &entity)
+	return
+}
+
+func (d *datastoreConnector) Retrieve(key *datastore.Key, dst interface{}) (err error) {
+
+	err = d.client.Get(d.ctx, key, dst)
 	return
 }
