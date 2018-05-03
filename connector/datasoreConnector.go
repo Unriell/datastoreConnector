@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"sync"
 
 	"cloud.google.com/go/datastore"
 	"golang.org/x/oauth2/google"
@@ -48,92 +47,87 @@ func getClientType(emulatorEnable bool, gcloudCredentialsPath string) (clientTyp
 }
 
 type datastoreConnector struct {
-	client *datastore.Client
-	ctx    context.Context
+	client         *datastore.Client
+	ctx            context.Context
+	CollectionName string
 }
 
 // DatastoreBasicOpt represents datastore basic operations as CRUD methods
 type DatastoreBasicOpt interface {
-	Save(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
-	Exist(key *datastore.Key, query *datastore.Query) bool
-	Delete(key *datastore.Key) bool
-	Update(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
-	Retrieve(key *datastore.Key, dst interface{}) error
+	Save(entityID string, entity interface{}) (*datastore.Key, error)
+	Exist(query *datastore.Query) bool
+	Delete(entityID string) bool
+	Update(entityID string, entity interface{}) (*datastore.Key, error)
+	Retrieve(entityID string, dst interface{}) error
 }
 
-var once sync.Once
-
-// Instance represent a single dao instance.
-var Instance *datastoreConnector
-
 // New is a factory method that create new datastore connector single instances
-func New(emulatorEnable bool, datastoreEmulatorAddr string, gcloudCredentialsPath, projectID string) DatastoreBasicOpt {
-	once.Do(func() {
-		Instance = new(datastoreConnector)
-		Instance.ctx = context.Background()
-		var err error
-		switch getClientType(emulatorEnable, gcloudCredentialsPath) {
-		case EMULATOR:
-			if Instance.client, err = datastore.NewClient(Instance.ctx, projectID); err != nil {
-				log.Fatal(err)
-			}
-			os.Setenv("DATASTORE_EMULATOR_HOST", datastoreEmulatorAddr)
-			break
-		case SIMPLE:
-			client, err := datastore.NewClient(Instance.ctx, projectID)
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			Instance.client = client
-			break
-		case KEYFILE:
-
-			jsonKey, err := ioutil.ReadFile(path.Join(gcloudCredentialsPath, "keyfile.json"))
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			conf, err := google.JWTConfigFromJSON(
-				jsonKey,
-				datastore.ScopeDatastore,
-			)
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			client, err := datastore.NewClient(
-				Instance.ctx,
-				projectID,
-				option.WithTokenSource(conf.TokenSource(Instance.ctx)),
-			)
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			Instance.client = client
-			break
-		default:
-			log.Fatal("Unknown Datastore client")
-			break
+func New(emulatorEnable bool, datastoreEmulatorAddr string, gcloudCredentialsPath, projectID, CollectionName string) DatastoreBasicOpt {
+	var Instance = new(datastoreConnector)
+	Instance.CollectionName = CollectionName
+	Instance.ctx = context.Background()
+	var err error
+	switch getClientType(emulatorEnable, gcloudCredentialsPath) {
+	case EMULATOR:
+		os.Setenv("DATASTORE_EMULATOR_HOST", datastoreEmulatorAddr)
+		if Instance.client, err = datastore.NewClient(Instance.ctx, projectID); err != nil {
+			log.Fatal(err)
 		}
 
-	})
+		break
+	case SIMPLE:
+		client, err := datastore.NewClient(Instance.ctx, projectID)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		Instance.client = client
+		break
+	case KEYFILE:
+
+		jsonKey, err := ioutil.ReadFile(path.Join(gcloudCredentialsPath, "keyfile.json"))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		conf, err := google.JWTConfigFromJSON(
+			jsonKey,
+			datastore.ScopeDatastore,
+		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		client, err := datastore.NewClient(
+			Instance.ctx,
+			projectID,
+			option.WithTokenSource(conf.TokenSource(Instance.ctx)),
+		)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		Instance.client = client
+		break
+	default:
+		log.Fatal("Unknown Datastore client")
+		break
+	}
 
 	return Instance
 }
 
-func (d *datastoreConnector) Save(inboundKey *datastore.Key, entity interface{}) (key *datastore.Key, err error) {
+func (d *datastoreConnector) Save(entityID string, entity interface{}) (key *datastore.Key, err error) {
+	inboundKey := datastore.NameKey(d.CollectionName, entityID, nil)
 	key, err = d.client.Put(d.ctx, inboundKey, entity)
 	return
 }
 
-func (d *datastoreConnector) Exist(key *datastore.Key, query *datastore.Query) (exist bool) {
-
+func (d *datastoreConnector) Exist(query *datastore.Query) (exist bool) {
 	exist = false
 	if amount, err := d.client.Count(d.ctx, query); err == nil {
 		if amount > 0 {
@@ -143,23 +137,23 @@ func (d *datastoreConnector) Exist(key *datastore.Key, query *datastore.Query) (
 	return
 }
 
-func (d *datastoreConnector) Delete(key *datastore.Key) (deleted bool) {
-
-	if err := d.client.Delete(d.ctx, key); err != nil {
+func (d *datastoreConnector) Delete(entityID string) (deleted bool) {
+	inboundKey := datastore.NameKey(d.CollectionName, entityID, nil)
+	if err := d.client.Delete(d.ctx, inboundKey); err != nil {
 		deleted = true
 	}
 
 	return
 }
 
-func (d *datastoreConnector) Update(inboundKey *datastore.Key, entity interface{}) (key *datastore.Key, err error) {
-
-	key, err = d.client.Put(d.ctx, key, &entity)
+func (d *datastoreConnector) Update(entityID string, entity interface{}) (key *datastore.Key, err error) {
+	inboundKey := datastore.NameKey(d.CollectionName, entityID, nil)
+	key, err = d.client.Put(d.ctx, inboundKey, entity)
 	return
 }
 
-func (d *datastoreConnector) Retrieve(key *datastore.Key, dst interface{}) (err error) {
-
-	err = d.client.Get(d.ctx, key, dst)
+func (d *datastoreConnector) Retrieve(entityID string, dst interface{}) (err error) {
+	inboundKey := datastore.NameKey(d.CollectionName, entityID, nil)
+	err = d.client.Get(d.ctx, inboundKey, dst)
 	return
 }
