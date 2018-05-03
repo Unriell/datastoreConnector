@@ -55,6 +55,7 @@ type datastoreConnector struct {
 type DatastoreBasicOpt interface {
 	Save(inboundKey *datastore.Key, entity interface{}) (*datastore.Key, error)
 	Exist(key *datastore.Key) bool
+	Delete(key *datastore.Key) bool
 }
 
 var once sync.Once
@@ -135,5 +136,14 @@ func (d *datastoreConnector) Exist(key *datastore.Key) (exist bool) {
 			exist = true
 		}
 	}
+	return
+}
+
+func (d *datastoreConnector) Delete(key *datastore.Key) (deleted bool) {
+
+	if err := d.client.Delete(d.ctx, key); err != nil {
+		deleted = true
+	}
+
 	return
 }
