@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"sync"
 
@@ -64,7 +65,7 @@ var once sync.Once
 var Instance *datastoreConnector
 
 // New is a factory method that create new datastore connector single instances
-func New(emulatorEnable bool, gcloudCredentialsPath, projectID string) DatastoreBasicOpt {
+func New(emulatorEnable bool, datastoreEmulatorAddr string, gcloudCredentialsPath, projectID string) DatastoreBasicOpt {
 	once.Do(func() {
 		Instance = new(datastoreConnector)
 		Instance.ctx = context.Background()
@@ -74,6 +75,7 @@ func New(emulatorEnable bool, gcloudCredentialsPath, projectID string) Datastore
 			if Instance.client, err = datastore.NewClient(Instance.ctx, projectID); err != nil {
 				log.Fatal(err)
 			}
+			os.Setenv("DATASTORE_EMULATOR_HOST", datastoreEmulatorAddr)
 			break
 		case SIMPLE:
 			client, err := datastore.NewClient(Instance.ctx, projectID)
