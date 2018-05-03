@@ -59,6 +59,7 @@ type DatastoreBasicOpt interface {
 	Delete(entityID string) bool
 	Update(entityID string, entity interface{}) (*datastore.Key, error)
 	Retrieve(entityID string, dst interface{}) error
+	RetrieveByQuery(dst interface{}, query *datastore.Query) error
 }
 
 // New is a factory method that create new datastore connector single instances
@@ -155,5 +156,10 @@ func (d *datastoreConnector) Update(entityID string, entity interface{}) (key *d
 func (d *datastoreConnector) Retrieve(entityID string, dst interface{}) (err error) {
 	inboundKey := datastore.NameKey(d.CollectionName, entityID, nil)
 	err = d.client.Get(d.ctx, inboundKey, dst)
+	return
+}
+
+func (d *datastoreConnector) RetrieveByQuery(dst interface{}, query *datastore.Query) (err error) {
+	_, err = d.client.GetAll(d.ctx, query, dst)
 	return
 }
