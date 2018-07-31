@@ -61,6 +61,7 @@ type DatastoreBasicOpt interface {
 	Update(entityID string, entity interface{}) (*datastore.Key, error)
 	Retrieve(entityID string, dst interface{}) error
 	RetrieveByQuery(dst interface{}, query *datastore.Query) error
+	RetrieveByQueryWithKeys(dst interface{}, query *datastore.Query) ([]*datastore.Key, error)
 }
 
 // New is a factory method that create new datastore connector single instances
@@ -167,5 +168,10 @@ func (d *datastoreConnector) Retrieve(entityID string, dst interface{}) (err err
 
 func (d *datastoreConnector) RetrieveByQuery(dst interface{}, query *datastore.Query) (err error) {
 	_, err = d.client.GetAll(d.ctx, query, dst)
+	return
+}
+
+func (d *datastoreConnector) RetrieveByQueryWithKeys(dst interface{}, query *datastore.Query) (keys []*datastore.Key, err error) {
+	keys, err = d.client.GetAll(d.ctx, query, dst)
 	return
 }
