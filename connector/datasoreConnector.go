@@ -55,6 +55,7 @@ type datastoreConnector struct {
 // DatastoreBasicOpt represents datastore basic operations as CRUD methods
 type DatastoreBasicOpt interface {
 	Save(entityID string, entity interface{}) (*datastore.Key, error)
+	SaveAutoID(entity interface{}) (*datastore.Key, error)
 	Exist(query *datastore.Query) bool
 	Delete(entityID string) bool
 	Update(entityID string, entity interface{}) (*datastore.Key, error)
@@ -120,6 +121,11 @@ func New(emulatorEnable bool, datastoreEmulatorAddr string, gcloudCredentialsPat
 	}
 
 	return Instance
+}
+
+func (d *datastoreConnector) SaveAutoID(entity interface{}) (key *datastore.Key, err error) {
+	key, err = d.client.Put(d.ctx, nil, entity)
+	return
 }
 
 func (d *datastoreConnector) Save(entityID string, entity interface{}) (key *datastore.Key, err error) {
