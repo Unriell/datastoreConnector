@@ -125,7 +125,7 @@ func New(emulatorEnable bool, datastoreEmulatorAddr string, gcloudCredentialsPat
 }
 
 func (d *datastoreConnector) SaveAutoID(entityName string, entity interface{}) (key *datastore.Key, err error) {
-	k := datastore.IncompleteKey(entityName, nil)
+	k := datastore.IncompleteKey(d.CollectionName, nil)
 	key, err = d.client.Put(d.ctx, k, entity)
 	return
 }
